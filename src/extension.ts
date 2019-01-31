@@ -167,7 +167,7 @@ export function activate(context: vscode.ExtensionContext) {
 					}
 					else {
 						console.log("No bin subdirectory found at C:\\Program Files\\Salesforce CLI\\client");
-						vscode.window.showErrorMessage('Failure: No bin subdirectory found at C:\\Program Files\\Salesforce CLI\\client')
+						vscode.window.showErrorMessage('Failure: No bin subdirectory found at C:\\Program Files\\Salesforce CLI\\client');
 					}
 				}
 				else {
