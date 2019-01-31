@@ -3,7 +3,7 @@
 import * as vscode from 'vscode';
 import fs = require('fs');
 import path = require('path');
-import appdata = require('appdata-path');
+//import appdata = require('appdata-path');
 let validJavaInstalls = 0;
 
 export function activate(context: vscode.ExtensionContext) {
