@@ -2,7 +2,7 @@
 	"name": "dxdevcheck",
 	"displayName": "dxdevcheck",
 	"description": "checks dev things",
-	"version": "0.0.1",
+	"version": "1.0.0",
 	"publisher": "trebleCode",
 	"engines": {
 		"vscode": "^1.28.0"
