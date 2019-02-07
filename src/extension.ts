@@ -3,8 +3,9 @@
 import * as vscode from 'vscode';
 import fs = require('fs');
 import path = require('path');
-import appdata = require('appdata-path');
+//import appdata = require('appdata-path');
 let validJavaInstalls = 0;
+
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -12,7 +13,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const dxinstallcheck = 'extension.checkDirectories';
 
 	// command handler
-	const installCheckHandler = (name?: 'DX DevCheck: Check Directories') => {
+	const installCheckHandler = async (name?: 'DX DevCheck: Check Directories') => {
 		// Check if a local path exists
 		function checkDirectorySync(directory: fs.PathLike) {
 			try {
@@ -42,9 +43,67 @@ export function activate(context: vscode.ExtensionContext) {
 				return false;
 			}
 		}
-		
+
+		function checkMatchType(value: any, arr: any) {
+			var matchType = 'none';
+
+			let isPartialMatch = checkPartialMatch(value, arr);
+			if(isPartialMatch === true)
+			{
+				let isExactMatch = checkExactMatch(value, arr);
+				if(isExactMatch === true) {
+					matchType = 'exactMatch';
+				}
+				else {
+					matchType = 'partialMatch';
+				}
+			}
+			return matchType;
+		}
+
+		function checkExactMatch(value: any, arr: any) {
+			var status = false;
+			var name = arr;
+			if (name === value && name !== '') {
+				status = true;
+			}
+
+			return status;
+		}
+
+		function checkPartialMatch(value: string, arr: string) {
+			var status = false;
+
+			for (var i = 0; i < arr.length; i++) {
+				var name = arr;
+				if (name.includes(value) && name !== '') {
+					status = true;
+					break;
+				}
+			}
+
+			return status;
+		}
+
+
+		function getUserHome() {
+			return process.env[(process.platform === 'win32') ? 'USERPROFILE' : 'HOME'];
+		}
+
+		function isInArray(array: any, search: any)
+		{
+			return array.indexOf(search) >= 0;
+		}
+
 		// Get all directories under C:\Program Files
 		let programFilesChildren = getChildDirectoriesWithoutMap('C:\\Program Files');
+
+		// Get users %APPDATA% folder
+		//let appDataPath = appdata.getAppDataPath();
+
+		// Get user's %USERPROFILE% folder
+		let userProfile = getUserHome();
+		//console.log('userProfile is type: '+ typeof userProfile);
 
 		// Begin Java checking
 		// check if a Java folder exists
@@ -87,7 +146,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 		let nodejsFolders = programFilesChildren.filter(child => child.valueOf().includes('nodejs'));
 
-		if(nodejsFolders.length === 1) {
+		if (nodejsFolders.length === 1) {
 			// verify that the only folder is 'nodejs' and not additional ones renamed with a (1), etc.
 			var nodejsCheck = checkDirectorySync('C:\\Program Files\\nodejs');
 			if (nodejsCheck === true) {
@@ -104,12 +163,12 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 			else {
 				vscode.window.showErrorMessage('Faliure: nodejs folder NOT found. Please check the names of your folders in \\Program Files that have "nodejs" included in the name');
-			} 
+			}
 		} // End nodejs checking
 
 		// Begin git-bash checks
 		let gitbashFolders = programFilesChildren.filter(child => child.valueOf().includes('Git'));
-		if(gitbashFolders.length === 1) {
+		if (gitbashFolders.length === 1) {
 			// verify that the only folder is 'nodejs' and not additional ones renamed with a (1), etc.
 			var gitCheck = checkDirectorySync('C:\\Program Files\\Git');
 			if (gitCheck === true) {
@@ -125,38 +184,38 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 			else {
 				vscode.window.showErrorMessage('Git folder NOT found. Please check the names of your folders in \\Program Files that have "Git" included in the name');
-			} 
+			}
 		} // End Git checking
 
 		// Begin SFDX CLI checks
 		let sfdxcliFolders = programFilesChildren.filter(child => child.valueOf().includes('Salesforce CLI'));
-		if(sfdxcliFolders.length === 1) {
+		if (sfdxcliFolders.length === 1) {
 			var sfdxCheck = checkDirectorySync('C:\\Program Files\\Salesforce CLI');
 			if (sfdxCheck === true) {
 				vscode.window.showInformationMessage('Success: Salesforce CLI folder found in Program Files');
 				let clientCheck = getChildDirectories(sfdxcliFolders[0]).filter(child => child.valueOf().includes('client'));
 				if (clientCheck !== null) {
 					console.log('Salesforce CLI\\client folder exists: ' + clientCheck);
-					
+
 					// check that a bin subfolder exists
 					let binCheck = getChildDirectories(clientCheck[0]).filter(child => child.valueOf().includes('bin'));
 					if (binCheck !== null) {
 						let neededFiles = 0;
 						// check that node.exe, sfdx.cmd, and sfdx.js all exist in this folder
 						let nodeExeCheck = checkFileExistsInTargetFolder(binCheck[0], '\\node.exe');
-						if(nodeExeCheck) {
+						if (nodeExeCheck) {
 							neededFiles++;
 						}
 						let sfdxCmdCheck = checkFileExistsInTargetFolder(binCheck[0], '\\sfdx.cmd');
-						if(sfdxCmdCheck) {
+						if (sfdxCmdCheck) {
 							neededFiles++;
 						}
 						let sfdxJsCheck = checkFileExistsInTargetFolder(binCheck[0], '\\sfdx.js');
-						if(sfdxJsCheck) {
+						if (sfdxJsCheck) {
 							neededFiles++;
 						}
 
-						if(neededFiles === 3) {
+						if (neededFiles === 3) {
 							console.log('All required files for SFDX CLI present in Program Files\\Salesforce CLI\\client\\bin');
 							vscode.window.showInformationMessage('Success: All necessary files for SFDX CLI are present');
 						}
@@ -176,7 +235,80 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 			else {
 				vscode.window.showErrorMessage('Salesforce folder NOT found. Please check the names of your folders in \\Program Files that have "Salesforce" included in the name');
-			} 
+			}
+		} // End SFDX CLI checks
+
+		// Begin npm configuration checks
+		console.log("Checking for npm config");
+		try {
+			let npmConfigCheck = checkFileExistsInTargetFolder(userProfile + "\\", ".npmrc");
+			if (npmConfigCheck === true) {
+				console.log("Found npm config file");
+
+				let npmConfigFile = fs.readFileSync(userProfile + "\\.npmrc", 'utf8');
+				console.log("npm config file data: " + npmConfigFile);
+			}
+		}
+		catch (e) {
+			console.log("npm config file not found @: " + userProfile + "\\.npmrc");
+			throw e;
+		}
+
+		try {
+			console.log('about to try to read in NPM config');
+
+			// loop through lines in the npm config
+			// if lines only partially match the desired config
+			// setting for [registry=,https-proxy=,proxy=,strict-ssl=]
+			// then discard them. Keep any other config items
+			// other than empty lines
+
+			var npmConfig = fs.readFileSync(userProfile + "\\.npmrc").toString().split("\n");
+			console.log(npmConfig);
+
+			let requiredNpmItems = ['registry=https://registry.npmjs.org/\r','https-proxy=http://proxy.wellsfargo.com:8080/\r','proxy=http://proxy.wellsfargo.com:8080/\r','strict-ssl=false'];
+			let exactMatches: string[] = [];
+			let partialMatches: string[] = [];
+			let nonMatches: string[] = [];
+
+			for (var i = 0; i < npmConfig.length; i++) {
+				console.log("Npm config line [" + npmConfig.indexOf(npmConfig[i]) + "]: " + npmConfig[i]);
+
+				// check if all entries in the config to see what matches requiredNpmItems
+				for (var j = 0; j < requiredNpmItems.length; j++) {
+					console.log('Checking for match against: '+ requiredNpmItems[j]);
+					let currentMatchType = checkMatchType(npmConfig[i], requiredNpmItems[j]);
+					if(currentMatchType === 'exactMatch') {
+						// check that a duplicate doesn't already exist in the exactMatch array
+						let alreadyExists: boolean = isInArray(exactMatches, npmConfig[i]);
+						if(alreadyExists !== true) {
+							exactMatches.push(npmConfig[i]);
+						}
+					} else if (currentMatchType === 'partialMatch') {
+						// check for duplicates in partialMatches and nonMatches
+						let alreadyExists: boolean = isInArray(partialMatches, npmConfig[i]);
+						let alreadyExists2: boolean = isInArray(nonMatches, npmConfig[i]);
+						if(alreadyExists !== true && alreadyExists2 !== true) {
+							partialMatches.push(npmConfig[i]);
+						}
+					} else if(currentMatchType === 'none') {
+						// check for duplicates in exactMatches, partialMatches and nonMatches
+						let alreadyExists: boolean = isInArray(nonMatches, npmConfig[i]);
+						let alreadyExists2: boolean = isInArray(partialMatches, npmConfig[i]);
+						let alreadyExists3: boolean = isInArray(exactMatches, npmConfig[i]);
+						if(alreadyExists !== true && alreadyExists2 !== true && alreadyExists3 !== true) {
+							nonMatches.push(npmConfig[i]);
+						}
+					}
+				} // end npm config item checks
+			}
+			
+			console.log('Exact matches:'+ exactMatches);
+			console.log('Partial matches:'+ partialMatches);
+			console.log('None matches:'+ nonMatches);
+		}
+		catch (e) {
+			throw e;
 		}
 	};
 
