@@ -239,69 +239,70 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		} // End SFDX CLI checks
 
-		// Begin NPM configuration checks
-		console.log("\nChecking for NPM config");
+		// Begin npm configuration checks
+		console.log("\nChecking for npm config");
 		try {
-			let NPMConfigCheck = checkFileExistsInTargetFolder(userProfile + "\\", ".NPMrc");
-			if (NPMConfigCheck === true) {
-				console.log("Found NPM config file");
+			let npmConfigCheck = checkFileExistsInTargetFolder(userProfile + "\\", ".npmrc");
+			if (npmConfigCheck === true) {
+				console.log("Found npm config file");
 
-				let NPMConfigFile = fs.readFileSync(userProfile + "\\.NPMrc", 'utf8');
-				console.log("NPM config file data: \n\n" + NPMConfigFile);
+				let npmConfigFile = fs.readFileSync(userProfile + "\\.npmrc", 'utf8');
+				console.log("npm config file data: \n\n" + npmConfigFile);
 			}
 		}
 		catch (e) {
-			console.log("NPM config file not found @: " + userProfile + "\\.NPMrc");
+			console.log("npm config file not found @: " + userProfile + "\\.npmrc");
 			throw e;
 		}
 
 		try {
 			console.log('Checking configuration data against DX requirements');
 
-			// loop through lines in the NPM config
+			// loop through lines in the npm config
 			// if lines only partially match the desired config
 			// setting for [registry=,https-proxy=,proxy=,strict-ssl=]
 			// then discard them. Keep any other config items
 			// other than empty lines
 
-			var NPMConfig = fs.readFileSync(userProfile + "\\.NPMrc").toString().split("\n");
-			//console.log(NPMConfig);
+			var npmConfig = fs.readFileSync(userProfile + "\\.npmrc").toString().split("\n");
+			//console.log(npmConfig);
 
-			let requiredNPMItems = ['registry=https://registry.NPMjs.org/\r','https-proxy=http://proxy.wellsfargo.com:8080/\r','proxy=http://proxy.wellsfargo.com:8080/\r','strict-ssl=false'];
+			let requirednpmItems = ['registry=https://registry.npmjs.org/\r','https-proxy=http://proxy.wellsfargo.com:8080/\r','proxy=http://proxy.wellsfargo.com:8080/\r','strict-ssl=false'];
 			let exactMatches: string[] = [];
 			let partialMatches: string[] = [];
 			let nonMatches: string[] = [];
 
-			for (var i = 0; i < NPMConfig.length; i++) {
-				console.log("\nNPM config line [" + NPMConfig.indexOf(NPMConfig[i]) + "]: " + NPMConfig[i]);
+			// tslint:disable-next-line:no-duplicate-variable
+			for (var i = 0; i < npmConfig.length; i++) {
+				console.log("\nnpm config line [" + npmConfig.indexOf(npmConfig[i]) + "]: " + npmConfig[i]);
 
-				// check if all entries in the config to see what matches requiredNPMItems
-				for (var j = 0; j < requiredNPMItems.length; j++) {
-					console.log('Checking for match against: '+ requiredNPMItems[j]);
-					let currentMatchType = checkMatchType(NPMConfig[i], requiredNPMItems[j]);
+				// check if all entries in the config to see what matches requirednpmItems
+				for (var j = 0; j < requirednpmItems.length; j++) {
+					console.log('Checking for match against: '+ requirednpmItems[j]);
+					let currentMatchType = checkMatchType(npmConfig[i], requirednpmItems[j]);
 					if(currentMatchType === 'exactMatch') {
 						// check that a duplicate doesn't already exist in the exactMatch array
-						let alreadyExists: boolean = isInArray(exactMatches, NPMConfig[i]);
+						let alreadyExists: boolean = isInArray(exactMatches, npmConfig[i]);
 						if(alreadyExists !== true) {
-							exactMatches.push(NPMConfig[i]);
+							exactMatches.push(npmConfig[i]);
 						}
 					} else if (currentMatchType === 'partialMatch') {
 						// check for duplicates in partialMatches and nonMatches
-						let alreadyExists: boolean = isInArray(partialMatches, NPMConfig[i]);
-						let alreadyExists2: boolean = isInArray(nonMatches, NPMConfig[i]);
+						let alreadyExists: boolean = isInArray(partialMatches, npmConfig[i]);
+						let alreadyExists2: boolean = isInArray(nonMatches, npmConfig[i]);
 						if(alreadyExists !== true && alreadyExists2 !== true) {
-							partialMatches.push(NPMConfig[i]);
+							partialMatches.push(npmConfig[i]);
 						}
 					} else if(currentMatchType === 'none') {
 						// check for duplicates in exactMatches, partialMatches and nonMatches
-						let alreadyExists: boolean = isInArray(nonMatches, NPMConfig[i]);
-						let alreadyExists2: boolean = isInArray(partialMatches, NPMConfig[i]);
-						let alreadyExists3: boolean = isInArray(exactMatches, NPMConfig[i]);
+						let alreadyExists: boolean = isInArray(nonMatches, npmConfig[i]);
+						let alreadyExists2: boolean = isInArray(partialMatches, npmConfig[i]);
+						let alreadyExists3: boolean = isInArray(exactMatches, npmConfig[i]);
 						if(alreadyExists !== true && alreadyExists2 !== true && alreadyExists3 !== true) {
-							nonMatches.push(NPMConfig[i]);
+							nonMatches.push(npmConfig[i]);
 						}
 					}
-				} // end NPM config item checks
+				} // end npm config item checks
 			}
 			
 			console.log('\nExact matches: '+ exactMatches);
