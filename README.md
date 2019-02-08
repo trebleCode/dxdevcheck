@@ -11,7 +11,12 @@ Currently checks for the following in C:\Program Files:
 * Git
 * Salesforce CLI
 * NPM configuration
-* Git configuration
+* Git
+* VS Code user preferences
+
+Checks %USERPROFILE%\.vscode for:
+
+* Installed extensions
 
 Also checks for values in the following system variables:
 
