@@ -153,11 +153,11 @@ export function activate(context: vscode.ExtensionContext) {
 				vscode.window.showInformationMessage('nodejs folder found');
 				let currentCheck = checkFileExistsInTargetFolder(nodejsFolders[0], '\\node.exe');
 				if (currentCheck === true) {
-					console.log('Valid nodejs install: ' + nodejsFolders[0]);
+					console.log('\nValid nodejs install: ' + nodejsFolders[0]);
 					vscode.window.showInformationMessage('Success: NodeJS validation passed');
 				}
 				else {
-					console.log('Path ' + nodejsFolders[0] + ' does not contain a valid node.exe executable');
+					console.log('\nPath ' + nodejsFolders[0] + ' does not contain a valid node.exe executable');
 					vscode.window.showErrorMessage('Faliure: No valid NodeJS installation found');
 				}
 			}
@@ -175,11 +175,11 @@ export function activate(context: vscode.ExtensionContext) {
 				vscode.window.showInformationMessage('Success: Git folder found');
 				let currentCheck = checkFileExistsInTargetFolder(gitbashFolders[0], '\\git-bash.exe');
 				if (currentCheck === true) {
-					console.log('Valid Git install: ' + gitbashFolders[0]);
+					console.log('\nValid Git install: ' + gitbashFolders[0]);
 					vscode.window.showInformationMessage('Success: git-bash validation passed');
 				}
 				else {
-					console.log('Path ' + gitbashFolders[0] + ' does not contain a valid git-bash.exe executable');
+					console.log('\nPath ' + gitbashFolders[0] + ' does not contain a valid git-bash.exe executable');
 				}
 			}
 			else {
@@ -195,11 +195,12 @@ export function activate(context: vscode.ExtensionContext) {
 				vscode.window.showInformationMessage('Success: Salesforce CLI folder found in Program Files');
 				let clientCheck = getChildDirectories(sfdxcliFolders[0]).filter(child => child.valueOf().includes('client'));
 				if (clientCheck !== null) {
-					console.log('Salesforce CLI\\client folder exists: ' + clientCheck);
+					console.log('\nSalesforce CLI\\client folder exists: ' + clientCheck);
 
 					// check that a bin subfolder exists
 					let binCheck = getChildDirectories(clientCheck[0]).filter(child => child.valueOf().includes('bin'));
 					if (binCheck !== null) {
+						console.log('Salesforce CLI\\client\\bin folder exists: ' + binCheck);
 						let neededFiles = 0;
 						// check that node.exe, sfdx.cmd, and sfdx.js all exist in this folder
 						let nodeExeCheck = checkFileExistsInTargetFolder(binCheck[0], '\\node.exe');
@@ -230,7 +231,7 @@ export function activate(context: vscode.ExtensionContext) {
 					}
 				}
 				else {
-					console.log('Path ' + sfdxcliFolders[0] + ' does not contain all necessary files');
+					console.log('\nPath ' + sfdxcliFolders[0] + ' does not contain all necessary files');
 				}
 			}
 			else {
@@ -238,74 +239,74 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		} // End SFDX CLI checks
 
-		// Begin npm configuration checks
-		console.log("Checking for npm config");
+		// Begin NPM configuration checks
+		console.log("\nChecking for NPM config");
 		try {
-			let npmConfigCheck = checkFileExistsInTargetFolder(userProfile + "\\", ".npmrc");
-			if (npmConfigCheck === true) {
-				console.log("Found npm config file");
+			let NPMConfigCheck = checkFileExistsInTargetFolder(userProfile + "\\", ".NPMrc");
+			if (NPMConfigCheck === true) {
+				console.log("Found NPM config file");
 
-				let npmConfigFile = fs.readFileSync(userProfile + "\\.npmrc", 'utf8');
-				console.log("npm config file data: " + npmConfigFile);
+				let NPMConfigFile = fs.readFileSync(userProfile + "\\.NPMrc", 'utf8');
+				console.log("NPM config file data: \n\n" + NPMConfigFile);
 			}
 		}
 		catch (e) {
-			console.log("npm config file not found @: " + userProfile + "\\.npmrc");
+			console.log("NPM config file not found @: " + userProfile + "\\.NPMrc");
 			throw e;
 		}
 
 		try {
-			console.log('about to try to read in NPM config');
+			console.log('Checking configuration data against DX requirements');
 
-			// loop through lines in the npm config
+			// loop through lines in the NPM config
 			// if lines only partially match the desired config
 			// setting for [registry=,https-proxy=,proxy=,strict-ssl=]
 			// then discard them. Keep any other config items
 			// other than empty lines
 
-			var npmConfig = fs.readFileSync(userProfile + "\\.npmrc").toString().split("\n");
-			console.log(npmConfig);
+			var NPMConfig = fs.readFileSync(userProfile + "\\.NPMrc").toString().split("\n");
+			//console.log(NPMConfig);
 
-			let requiredNpmItems = ['registry=https://registry.npmjs.org/\r','https-proxy=http://proxy.wellsfargo.com:8080/\r','proxy=http://proxy.wellsfargo.com:8080/\r','strict-ssl=false'];
+			let requiredNPMItems = ['registry=https://registry.NPMjs.org/\r','https-proxy=http://proxy.wellsfargo.com:8080/\r','proxy=http://proxy.wellsfargo.com:8080/\r','strict-ssl=false'];
 			let exactMatches: string[] = [];
 			let partialMatches: string[] = [];
 			let nonMatches: string[] = [];
 
-			for (var i = 0; i < npmConfig.length; i++) {
-				console.log("Npm config line [" + npmConfig.indexOf(npmConfig[i]) + "]: " + npmConfig[i]);
+			for (var i = 0; i < NPMConfig.length; i++) {
+				console.log("\nNPM config line [" + NPMConfig.indexOf(NPMConfig[i]) + "]: " + NPMConfig[i]);
 
-				// check if all entries in the config to see what matches requiredNpmItems
-				for (var j = 0; j < requiredNpmItems.length; j++) {
-					console.log('Checking for match against: '+ requiredNpmItems[j]);
-					let currentMatchType = checkMatchType(npmConfig[i], requiredNpmItems[j]);
+				// check if all entries in the config to see what matches requiredNPMItems
+				for (var j = 0; j < requiredNPMItems.length; j++) {
+					console.log('Checking for match against: '+ requiredNPMItems[j]);
+					let currentMatchType = checkMatchType(NPMConfig[i], requiredNPMItems[j]);
 					if(currentMatchType === 'exactMatch') {
 						// check that a duplicate doesn't already exist in the exactMatch array
-						let alreadyExists: boolean = isInArray(exactMatches, npmConfig[i]);
+						let alreadyExists: boolean = isInArray(exactMatches, NPMConfig[i]);
 						if(alreadyExists !== true) {
-							exactMatches.push(npmConfig[i]);
+							exactMatches.push(NPMConfig[i]);
 						}
 					} else if (currentMatchType === 'partialMatch') {
 						// check for duplicates in partialMatches and nonMatches
-						let alreadyExists: boolean = isInArray(partialMatches, npmConfig[i]);
-						let alreadyExists2: boolean = isInArray(nonMatches, npmConfig[i]);
+						let alreadyExists: boolean = isInArray(partialMatches, NPMConfig[i]);
+						let alreadyExists2: boolean = isInArray(nonMatches, NPMConfig[i]);
 						if(alreadyExists !== true && alreadyExists2 !== true) {
-							partialMatches.push(npmConfig[i]);
+							partialMatches.push(NPMConfig[i]);
 						}
 					} else if(currentMatchType === 'none') {
 						// check for duplicates in exactMatches, partialMatches and nonMatches
-						let alreadyExists: boolean = isInArray(nonMatches, npmConfig[i]);
-						let alreadyExists2: boolean = isInArray(partialMatches, npmConfig[i]);
-						let alreadyExists3: boolean = isInArray(exactMatches, npmConfig[i]);
+						let alreadyExists: boolean = isInArray(nonMatches, NPMConfig[i]);
+						let alreadyExists2: boolean = isInArray(partialMatches, NPMConfig[i]);
+						let alreadyExists3: boolean = isInArray(exactMatches, NPMConfig[i]);
 						if(alreadyExists !== true && alreadyExists2 !== true && alreadyExists3 !== true) {
-							nonMatches.push(npmConfig[i]);
+							nonMatches.push(NPMConfig[i]);
 						}
 					}
-				} // end npm config item checks
+				} // end NPM config item checks
 			}
 			
-			console.log('Exact matches:'+ exactMatches);
-			console.log('Partial matches:'+ partialMatches);
-			console.log('None matches:'+ nonMatches);
+			console.log('\nExact matches: '+ exactMatches);
+			console.log('Partial matches: '+ partialMatches);
+			console.log('None matches: '+ nonMatches);
 		}
 		catch (e) {
 			throw e;
