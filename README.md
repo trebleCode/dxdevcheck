@@ -10,6 +10,13 @@ Currently checks for the following in C:\Program Files:
 * NodeJS
 * Git
 * Salesforce CLI
+* NPM configuration
+* Git configuration
+
+Also checks for values in the following system variables:
+
+* PATH
+* HTTP_PROXY & HTTPS_PROXY
 
 ## Requirements
 
