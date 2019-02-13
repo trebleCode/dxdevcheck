@@ -44,78 +44,8 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		}
 
-		function checkMatchType(value: any, arr: any) {
-			var matchType = 'none';
-
-			let isPartialMatch = checkPartialMatch(value, arr);
-			if (isPartialMatch === true) {
-				{
-					let isExactMatch = checkExactMatch(value, arr);
-					if (isExactMatch === true) {
-						matchType = 'exactMatch';
-					}
-					else {
-						matchType = 'partialMatch';
-					}
-				}
-			}
-			return matchType;
-		}
-
-		function checkExactMatch(value: string, arr: string) {
-			var status = false;
-			if (value === arr) {
-				status = true;
-			}
-			return status;
-		}
-
-		function checkPartialMatch(value: string, arr: string) {
-			var status = false;
-			if (arr.indexOf(value) >= 0) {
-				status = true;
-			}
-			return status;
-		}
-
-
 		function getUserHome() {
 			return String(process.env[(process.platform === 'win32') ? 'USERPROFILE' : 'HOME']);
-		}
-
-		function isInArray(array: any, search: any) {
-			return array.indexOf(search) >= 0;
-		}
-
-		function createNewConfigFile(path: string) {
-			fs.open(path, "wx", function (err, fd) {
-				if (err) {
-					throw err;
-				}
-				else {
-					console.log('Config file created at: ' + path);
-				}
-				fs.close(fd, function (err) {
-					if (err) {
-						throw err;
-					} else {
-						console.log('Config file successfully closed');
-					}
-				});
-			});
-		}
-
-		function renameConfigFile(existingFilePath: string, newFilePath: string) {
-			fs.rename(existingFilePath, newFilePath, function (err) {
-				if (err) {
-					console.log('ERROR: ' + err);
-					return false;
-				}
-				else {
-					console.log('File ' + existingFilePath + ' renamed to ' + newFilePath);
-					return true;
-				}
-			});
 		}
 
 		function checkContainsKey(keyname: string, arr: any) {
