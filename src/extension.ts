@@ -70,6 +70,77 @@ export function activate(context: vscode.ExtensionContext) {
 			return hasKeyValue;
 		}
 
+		function setConfigFileMap(arrayToMap: any) {
+			let thisMap = arrayToMap
+			.filter((entry: string) => entry !== '\n' && entry !== "" && entry !== "\r")
+			.map((item: { split: (arg0: string) => string; }) => {
+				var itemSplit = item.split('=');
+				var k = itemSplit[0].trim().replace(/\/$/, '');
+				var v = itemSplit[1].trim().replace(/\/$/, '');
+				return {
+					key: k,
+					value: v
+				};
+			});
+			return thisMap;
+		}
+
+		function appendItemsToConfigFile(file: fs.PathLike, configItems: string[])
+		{
+			let stream = fs.createWriteStream(file, { flags: 'a' });
+			configItems.forEach(function (item) {
+				stream.write(item + '\n');
+			});
+			return;
+		}
+
+		function compareMapsAndSetNewConfig(requiredMap: any, previousMap: any, configFile: fs.PathLike) {
+			let newConfig = new Array();
+
+			for (var z = 0; z < requiredMap.length; z++) {
+				let checkKey = checkContainsKey(requiredMap[z].key, previousMap);
+				if (checkKey === true) {
+					let checkValue = checkKeyValue(requiredMap[z].key, requiredMap[z].value, previousMap);
+
+					// the right key is present but has the wrong value
+					if (checkValue === false) {
+						let configItem = requiredMap[z].key + '=' + requiredMap[z].value + '\r';
+						newConfig.push(configItem);
+					}
+					else if (checkValue === true) {
+						console.log('Configuration already has key ' + requiredMap[z].key + ' with correct value: ' + requiredMap[z].value);
+					}
+				}
+				// doesn't have the required key at all
+				else if (checkKey === false) {
+					let configItem = requiredMap[z].key + '=' + requiredMap[z].value + '\r';
+					newConfig.push(configItem);
+				}
+			}
+
+			// now we check the previous config for any other key/value pairs
+			// that don't match the keys in the requirements
+			// this will allow us to preserve any other settings the dev may have setup
+			console.log('\nChecking previous configuration for any miscellaneous keys');
+			for (var c = 0; c < previousMap.length; c++) {
+				let isInRequiredConfig: boolean = checkContainsKey(previousMap[c].key, requiredMap);
+				if (isInRequiredConfig === false) {
+					let configItem = previousMap[c].key + '=' + previousMap[c].value + '\r';
+					newConfig.push(configItem);
+				} else {
+					console.log('Key ' + previousMap[c].key + ' is already in required config');
+				}
+			}
+			// clear the contents of the existing file to 0 bytes
+			fs.truncateSync(configFile, 0);
+			console.log('Config file has been truncated');
+
+			// write the new configuration to the existing file
+			appendItemsToConfigFile(configFile, newConfig);
+			
+			console.log("Finished writing new configuration file");
+		}
+
 		// Get all directories under C:\Program Files
 		let programFilesChildren = getChildDirectoriesWithoutMap('C:\\Program Files');
 
@@ -235,13 +306,8 @@ export function activate(context: vscode.ExtensionContext) {
 			console.log('npm config file found at ' + userProfile + '\nReading contents of config');
 			let existingnpmConfig = fs.readFileSync(userProfile + '\\.npmrc', 'utf-8').split('\r');
 
-			// list values
-			console.log('Existing config: typeof: ' + typeof existingnpmConfig);
-			console.log('Config values:\n\n' + existingnpmConfig);
-
-			let newnpmConfig: string[] = new Array();
 			/*
-			 Check each item in the existing config
+			 If existing config is not empty, check each item
 			 All values that exactly match at least one of the required config items, keep.
 			 All items that only partially match, discard.
 			 All items that do not match at all, keep as they may be other
@@ -251,80 +317,50 @@ export function activate(context: vscode.ExtensionContext) {
 			// split the required npm items into a key value pair for easier comparison
 			// trim line breaks and trailing slashes, and remove empty keys
 
-			let requiredNpmMap = requirednpmConfigItems
-				.filter(entry => entry !== '\n')
-				.map(item => {
-					var itemSplit = item.split('=');
-					var k = itemSplit[0].trim().replace(/\/$/, '');
-					var v = itemSplit[1].trim().replace(/\/$/, '');
-					return {
-						key: k,
-						value: v
-					};
-				});
+			console.log('at required npm configs');
+			let requiredNpmMap = setConfigFileMap(requirednpmConfigItems);
 
-			let previousNpmMap = existingnpmConfig
-				.filter(entry => entry !== '\n')
-				.map(item => {
-					var itemSplit = item.split('=');
-					var k = itemSplit[0].trim().replace(/\/$/, '');
-					var v = itemSplit[1].trim().replace(/\/$/, '');
-					return {
-						key: k,
-						value: v
-					};
-				});
+			console.log('at existing npm configs');
+			let previousNpmMap = setConfigFileMap(existingnpmConfig);
 
 			console.log('\nChecking required configuration against previous configuration');
-			// check if the keys in the required config are present in the previous config
-			for (var z = 0; z < requiredNpmMap.length; z++) {
-				let checkKey = checkContainsKey(requiredNpmMap[z].key, previousNpmMap);
-				if (checkKey === true) {
-					let checkValue = checkKeyValue(requiredNpmMap[z].key, requiredNpmMap[z].value, previousNpmMap);
 
-					// the right key is present but has the wrong value
-					if (checkValue === false) {
-						let configItem = requiredNpmMap[z].key + '=' + requiredNpmMap[z].value + '\r';
-						newnpmConfig.push(configItem);
-					}
-					else if (checkValue === true) {
-						console.log('Configuration already has key ' + requiredNpmMap[z].key + ' with correct value: ' + requiredNpmMap[z].value);
-					}
-				}
-				// doesn't have the required key at all
-				else if (checkKey === false) {
-					let configItem = requiredNpmMap[z].key + '=' + requiredNpmMap[z].value + '\r';
-					newnpmConfig.push(configItem);
-				}
+			// If the previous config file was not empty, compare previous vs. required
+			// otherwise, write all the required configuration and complete
+			if(previousNpmMap.length > 0)
+			{
+				compareMapsAndSetNewConfig(requiredNpmMap, previousNpmMap, userProfile+"\\.npmrc");
 			}
-
-			// now we check the previous config for any other key/value pairs
-			// that don't match the keys in the requirements
-			// this will allow us to preserve any other settings the dev may have setup
-			console.log('\nChecking previous configuration for any miscellaneous keys');
-			for (var c = 0; c < previousNpmMap.length; c++) {
-				let isInRequiredConfig: boolean = checkContainsKey(previousNpmMap[c].key, requiredNpmMap);
-				if (isInRequiredConfig === false) {
-					let configItem = previousNpmMap[c].key + '=' + previousNpmMap[c].value + '\r';
-					newnpmConfig.push(configItem);
-				} else {
-					console.log('Key ' + previousNpmMap[c].key + ' is already in required config');
-				}
+			else{
+				appendItemsToConfigFile(userProfile+"\\.npmrc", requirednpmConfigItems);
 			}
-			// write the new npm configuration
-			console.log('New npm config will be written as:\n\n' + newnpmConfig);
-
-			// clear the contents of the existing file to 0 bytes
-			fs.truncateSync(userProfile + '\\.npmrc', 0);
-			console.log('npm config file has been truncated');
-
-			// write the new configuration to the existing file
-			let npmFileStream = fs.createWriteStream(userProfile + '\\.npmrc', { flags: 'a' });
-			newnpmConfig.forEach(function (item) {
-				npmFileStream.write(item + '\n');
-			});
-			console.log("Finished writing new npm configuration file");
 		}
+
+		// Begin .gitconfig configuration checks
+		console.log('\nChecking for .gitconfig file');
+		let requiredgitConfigItems = ['http.sslbackend=openssl','http.proxy=http://proxy.wellsfargo.com:8080','https.proxy=http://proxy.wellsfargo.com:8080'];
+		/** 
+		 * ADDITIONAL GIT CONFIGS REQUIRED
+		 * user.name -> not null. if null or not present, prompt user and add
+		 * user.email -> not null. null null or not present, prompt user and add
+		 * http.sslcainfo -> must equal C:\Users\<username>\.vscode\extensions\ukoloff.win-ca-2.4.0\node_modules\win-ca\pem\roots.pem
+		 * 		This requires that a specific VS Code Extension is installed
+		 * 			Go ahead and install here or not before adding configuration? 
+		 */
+
+		let gitConfigExists: boolean = checkFileExistsInTargetFolder(userProfile, '\\.gitconfig');
+		if (gitConfigExists === false) {
+			// create new empty git config
+			fs.appendFileSync(userProfile + '\\.gitconfig', '');
+			requiredgitConfigItems.forEach(function (value) {
+				console.log('Writing value to config: ' + value);
+				fs.appendFileSync(userProfile + '\\.git', '\n' + value);
+			});
+		}
+		else if (gitConfigExists === true) {
+			console.log('.gitconfig file found');
+
+		}		
 	};
 
 	// push directory check command to command registry
