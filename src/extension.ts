@@ -44,55 +44,30 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		}
 
-		function checkMatchType(value: any, arr: any) {
-			var matchType = 'none';
-
-			let isPartialMatch = checkPartialMatch(value, arr);
-			if(isPartialMatch === true)
-			{
-				let isExactMatch = checkExactMatch(value, arr);
-				if(isExactMatch === true) {
-					matchType = 'exactMatch';
-				}
-				else {
-					matchType = 'partialMatch';
-				}
-			}
-			return matchType;
-		}
-
-		function checkExactMatch(value: any, arr: any) {
-			var status = false;
-			var name = arr;
-			if (name === value && name !== '') {
-				status = true;
-			}
-
-			return status;
-		}
-
-		function checkPartialMatch(value: string, arr: string) {
-			var status = false;
-
-			for (var i = 0; i < arr.length; i++) {
-				var name = arr;
-				if (name.includes(value) && name !== '') {
-					status = true;
-					break;
-				}
-			}
-
-			return status;
-		}
-
-
 		function getUserHome() {
-			return process.env[(process.platform === 'win32') ? 'USERPROFILE' : 'HOME'];
+			return String(process.env[(process.platform === 'win32') ? 'USERPROFILE' : 'HOME']);
 		}
 
-		function isInArray(array: any, search: any)
-		{
-			return array.indexOf(search) >= 0;
+		function checkContainsKey(keyname: string, arr: any) {
+			let hasKey: boolean = false;
+			let counter = 0;
+			for (i = 0; i < arr.length; i++) {
+				if (keyname === arr[i].key) {
+					counter++;
+				}
+			}
+			if (counter > 0) {
+				hasKey = true;
+			}
+			return hasKey;
+		}
+
+		function checkKeyValue(keyname: string, keyvalue: string, arr: any) {
+			let hasKeyValue: boolean = false;
+			if (arr[keyname] === keyvalue) {
+				hasKeyValue = true;
+			}
+			return hasKeyValue;
 		}
 
 		// Get all directories under C:\Program Files
@@ -102,8 +77,8 @@ export function activate(context: vscode.ExtensionContext) {
 		//let appDataPath = appdata.getAppDataPath();
 
 		// Get user's %USERPROFILE% folder
-		let userProfile = getUserHome();
-		//console.log('userProfile is type: '+ typeof userProfile);
+		const userProfile = getUserHome();
+		console.log(userProfile);
 
 		// Begin Java checking
 		// check if a Java folder exists
@@ -138,7 +113,7 @@ export function activate(context: vscode.ExtensionContext) {
 				vscode.window.showErrorMessage('Failure: No valid JDK 1.8 installations found');
 			}
 		} else {
-			vscode.window.showErrorMessage('Faliure: Java folder NOT found');
+			vscode.window.showErrorMessage('Failure: Java folder NOT found');
 		} // End Java checking
 
 		// Begin NodeJS checks
@@ -169,7 +144,7 @@ export function activate(context: vscode.ExtensionContext) {
 		// Begin git-bash checks
 		let gitbashFolders = programFilesChildren.filter(child => child.valueOf().includes('Git'));
 		if (gitbashFolders.length === 1) {
-			// verify that the only folder is 'nodejs' and not additional ones renamed with a (1), etc.
+			// verify that the only folder is 'Git' and not additional ones renamed with a (1), etc.
 			var gitCheck = checkDirectorySync('C:\\Program Files\\Git');
 			if (gitCheck === true) {
 				vscode.window.showInformationMessage('Success: Git folder found');
@@ -241,76 +216,114 @@ export function activate(context: vscode.ExtensionContext) {
 
 		// Begin npm configuration checks
 		console.log("\nChecking for npm config");
-		try {
-			let npmConfigCheck = checkFileExistsInTargetFolder(userProfile + "\\", ".npmrc");
-			if (npmConfigCheck === true) {
-				console.log("Found npm config file");
+		let npmConfigExists: boolean = checkFileExistsInTargetFolder(userProfile, '\\.npmrc');
+		let requirednpmConfigItems = ['proxy=http://proxy.wellsfargo.com:8080', 'https-proxy=http://proxy.wellsfargo.com:8080', 'strict-ssl=false'];
 
-				let npmConfigFile = fs.readFileSync(userProfile + "\\.npmrc", 'utf8');
-				console.log("npm config file data: \n\n" + npmConfigFile);
-			}
+		// no existing npm config file
+		if (npmConfigExists === false) {
+			// create a new, empty .npmrc file and append the necessary configuration data
+			console.log('No npm config file found at ' + userProfile + '\nCreating new file');
+			fs.appendFileSync(userProfile + '\\.npmrc', '');
+			requirednpmConfigItems.forEach(function (value) {
+				console.log('Writing value to config: ' + value);
+				fs.appendFileSync(userProfile + '\\.npmrc', '\n' + value);
+			});
 		}
-		catch (e) {
-			console.log("npm config file not found @: " + userProfile + "\\.npmrc");
-			throw e;
-		}
+		// currently existing npm config file
+		else if (npmConfigExists === true) {
+			// read the contents of the config into memory
+			console.log('npm config file found at ' + userProfile + '\nReading contents of config');
+			let existingnpmConfig = fs.readFileSync(userProfile + '\\.npmrc', 'utf-8').split('\r');
 
-		try {
-			console.log('Checking configuration data against DX requirements');
+			// list values
+			console.log('Existing config: typeof: ' + typeof existingnpmConfig);
+			console.log('Config values:\n\n' + existingnpmConfig);
 
-			// loop through lines in the npm config
-			// if lines only partially match the desired config
-			// setting for [registry=,https-proxy=,proxy=,strict-ssl=]
-			// then discard them. Keep any other config items
-			// other than empty lines
+			let newnpmConfig: string[] = new Array();
+			/*
+			 Check each item in the existing config
+			 All values that exactly match at least one of the required config items, keep.
+			 All items that only partially match, discard.
+			 All items that do not match at all, keep as they may be other
+			 config items the developer wants to keep
+			 */
 
-			var npmConfig = fs.readFileSync(userProfile + "\\.npmrc").toString().split("\n");
-			//console.log(npmConfig);
+			// split the required npm items into a key value pair for easier comparison
+			// trim line breaks and trailing slashes, and remove empty keys
 
-			let requirednpmItems = ['registry=https://registry.npmjs.org/\r','https-proxy=http://proxy.wellsfargo.com:8080/\r','proxy=http://proxy.wellsfargo.com:8080/\r','strict-ssl=false'];
-			let exactMatches: string[] = [];
-			let partialMatches: string[] = [];
-			let nonMatches: string[] = [];
+			let requiredNpmMap = requirednpmConfigItems
+				.filter(entry => entry !== '\n')
+				.map(item => {
+					var itemSplit = item.split('=');
+					var k = itemSplit[0].trim().replace(/\/$/, '');
+					var v = itemSplit[1].trim().replace(/\/$/, '');
+					return {
+						key: k,
+						value: v
+					};
+				});
 
-			// tslint:disable-next-line:no-duplicate-variable
-			for (var i = 0; i < npmConfig.length; i++) {
-				console.log("\nnpm config line [" + npmConfig.indexOf(npmConfig[i]) + "]: " + npmConfig[i]);
+			let previousNpmMap = existingnpmConfig
+				.filter(entry => entry !== '\n')
+				.map(item => {
+					var itemSplit = item.split('=');
+					var k = itemSplit[0].trim().replace(/\/$/, '');
+					var v = itemSplit[1].trim().replace(/\/$/, '');
+					return {
+						key: k,
+						value: v
+					};
+				});
 
-				// check if all entries in the config to see what matches requirednpmItems
-				for (var j = 0; j < requirednpmItems.length; j++) {
-					console.log('Checking for match against: '+ requirednpmItems[j]);
-					let currentMatchType = checkMatchType(npmConfig[i], requirednpmItems[j]);
-					if(currentMatchType === 'exactMatch') {
-						// check that a duplicate doesn't already exist in the exactMatch array
-						let alreadyExists: boolean = isInArray(exactMatches, npmConfig[i]);
-						if(alreadyExists !== true) {
-							exactMatches.push(npmConfig[i]);
-						}
-					} else if (currentMatchType === 'partialMatch') {
-						// check for duplicates in partialMatches and nonMatches
-						let alreadyExists: boolean = isInArray(partialMatches, npmConfig[i]);
-						let alreadyExists2: boolean = isInArray(nonMatches, npmConfig[i]);
-						if(alreadyExists !== true && alreadyExists2 !== true) {
-							partialMatches.push(npmConfig[i]);
-						}
-					} else if(currentMatchType === 'none') {
-						// check for duplicates in exactMatches, partialMatches and nonMatches
-						let alreadyExists: boolean = isInArray(nonMatches, npmConfig[i]);
-						let alreadyExists2: boolean = isInArray(partialMatches, npmConfig[i]);
-						let alreadyExists3: boolean = isInArray(exactMatches, npmConfig[i]);
-						if(alreadyExists !== true && alreadyExists2 !== true && alreadyExists3 !== true) {
-							nonMatches.push(npmConfig[i]);
-						}
+			console.log('\nChecking required configuration against previous configuration');
+			// check if the keys in the required config are present in the previous config
+			for (var z = 0; z < requiredNpmMap.length; z++) {
+				let checkKey = checkContainsKey(requiredNpmMap[z].key, previousNpmMap);
+				if (checkKey === true) {
+					let checkValue = checkKeyValue(requiredNpmMap[z].key, requiredNpmMap[z].value, previousNpmMap);
+
+					// the right key is present but has the wrong value
+					if (checkValue === false) {
+						let configItem = requiredNpmMap[z].key + '=' + requiredNpmMap[z].value + '\r';
+						newnpmConfig.push(configItem);
 					}
-				} // end npm config item checks
+					else if (checkValue === true) {
+						console.log('Configuration already has key ' + requiredNpmMap[z].key + ' with correct value: ' + requiredNpmMap[z].value);
+					}
+				}
+				// doesn't have the required key at all
+				else if (checkKey === false) {
+					let configItem = requiredNpmMap[z].key + '=' + requiredNpmMap[z].value + '\r';
+					newnpmConfig.push(configItem);
+				}
 			}
-			
-			console.log('\nExact matches: '+ exactMatches);
-			console.log('Partial matches: '+ partialMatches);
-			console.log('None matches: '+ nonMatches);
-		}
-		catch (e) {
-			throw e;
+
+			// now we check the previous config for any other key/value pairs
+			// that don't match the keys in the requirements
+			// this will allow us to preserve any other settings the dev may have setup
+			console.log('\nChecking previous configuration for any miscellaneous keys');
+			for (var c = 0; c < previousNpmMap.length; c++) {
+				let isInRequiredConfig: boolean = checkContainsKey(previousNpmMap[c].key, requiredNpmMap);
+				if (isInRequiredConfig === false) {
+					let configItem = previousNpmMap[c].key + '=' + previousNpmMap[c].value + '\r';
+					newnpmConfig.push(configItem);
+				} else {
+					console.log('Key ' + previousNpmMap[c].key + ' is already in required config');
+				}
+			}
+			// write the new npm configuration
+			console.log('New npm config will be written as:\n\n' + newnpmConfig);
+
+			// clear the contents of the existing file to 0 bytes
+			fs.truncateSync(userProfile + '\\.npmrc', 0);
+			console.log('npm config file has been truncated');
+
+			// write the new configuration to the existing file
+			let npmFileStream = fs.createWriteStream(userProfile + '\\.npmrc', { flags: 'a' });
+			newnpmConfig.forEach(function (item) {
+				npmFileStream.write(item + '\n');
+			});
+			console.log("Finished writing new npm configuration file");
 		}
 	};
 
