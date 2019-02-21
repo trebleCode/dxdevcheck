@@ -7,6 +7,7 @@ let validJavaInstallNames =[];
 const latestJavaInstallPath: any = null;
 let username = process.env.USERNAME;
 let userProfile: string = String(process.env.USERPROFILE);
+const replace = require('replace-in-file');
 
 function checkDirectorySync(directory: fs.PathLike) {
 	try {
@@ -59,10 +60,27 @@ function checkKeyValue(keyname: string, keyvalue: string, arr: any) {
 	return hasKeyValue;
 }
 
+function sliceOnceAndMap(arrayToMap: any, sliceCharacter: string) {
+	let thisMap = arrayToMap
+	.filter((entry: string) => entry !== '\n' && entry !== "" && entry !== "\r" && entry !== "{" && entry !== "}")
+	.map((item: string) => {
+		var k = item.trim().substr(0,item.indexOf(':') - 3);
+		var v = item.trim().slice(item.indexOf(sliceCharacter) - 2);
+		return {
+			key: k,
+			value: v
+		};
+	});
+	return thisMap;
+}
+
 function setConfigFileMap(arrayToMap: any, splitCharacter: string) {
 	let thisMap = arrayToMap
 	.filter((entry: string) => entry !== '\n' && entry !== "" && entry !== "\r" && entry !== "{" && entry !== "}")
-	.map((item: { split: (arg0: string) => string; }) => {
+	.map((item: 
+		{ 
+			split: (arg0: string) => string; 
+		}) => {
 		var itemSplit = item.split(splitCharacter);
 		var k = itemSplit[0].trim().replace(/\/$/, '');
 		var v = itemSplit[1].trim().replace(/\/$/, '');
@@ -74,10 +92,10 @@ function setConfigFileMap(arrayToMap: any, splitCharacter: string) {
 	return thisMap;
 }
 
-function appendItemsToConfigFile(file: fs.PathLike, configItems: string[], firstItemStartsNewLine?: boolean)
+function appendItemsToConfigFile(file: fs.PathLike, configItems: any, firstItemStartsNewLine?: boolean)
 {
 	let counter: number = 0;
-	configItems.forEach(function (item) {
+	configItems.forEach(function (item: any) {
 		if(firstItemStartsNewLine === true && counter === 0) {
 			fs.writeFileSync(file, `\n${item}\n`, {encoding: 'utf-8', flag: 'as'});
 		}
@@ -447,50 +465,93 @@ function addGitTagsNotFound(tags: string[], configFile: fs.PathLike) {
 }
 
 function readVSCodeSettings() {
+	
+	let newSettings = null;
 	let currentSettings = fs.readFileSync(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`, {encoding: 'utf-8'});
-	return currentSettings;
+	
+	if(currentSettings.length !== 0) {
+		newSettings = currentSettings.trim().replace('""','').split('\n');
+	}
+	return newSettings;
 }
 
 function runVSCodeConfigCheck(javaLocation?: string) {
 	console.log('\nChecking for .vscode settings.json file');
-	let configItemsFound = new Array();
-	let configItemsNotFound = new Array();
+	let keysAndValuesMatched = new Array();
+	let keysAndValuesNotMatched = new Array();
+	let keyOnlyMatched = new Array();
 
-	let requiredVSCodeSettingItems = [
-		'{',
-		'"http.proxy": "http://proxy.wellsfargo.com:8080",',
-		'"http.proxyStrictSSL": "false",',
-		'"git.path": "C:\\Program Files\\Git\\cmd\\git.exe",',
-		'"git.enabled": true,'
-	];
-
+	let requiredVSCodeSettingMap = new Map<String, any>();
+	requiredVSCodeSettingMap.set('{','')
+	.set("http.proxy", "http://proxy.wellsfargo.com:8080")
+	.set("proxyStrictSSL", false)
+	.set("git.path", "C:\\Program Files\\Git\\cmd\\git.exe")
+	.set("git.enabled", true);
+	
 	// if there's a valid JDK 8 installation on the machine
 	// add it to the config to be created
 
 	if(javaLocation) {
-		requiredVSCodeSettingItems.push(`"salesforcedx-vscode-apex.java.home": "${javaLocation.replace('\\','/')}"`, "}");
+		requiredVSCodeSettingMap.set('"salesforcedx-vscode-apex.java.home":', `'"${javaLocation.replace('\\','/')}"'`)
+		.set('}','');
 	}
 	else {
-		requiredVSCodeSettingItems.push('}');
+		requiredVSCodeSettingMap.set('}','');
 	}
 
 	// check if there is an existing settings.json
 	let vsCodeSettingsExists: boolean = checkFileExistsInTargetFolder(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User`,'\\settings.json');
 	if(vsCodeSettingsExists === false) {
 		// create config
-		appendItemsToConfigFile(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`, requiredVSCodeSettingItems);
+		appendItemsToConfigFile(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`, requiredVSCodeSettingMap);
 	}
 	else if(vsCodeSettingsExists === true) {
-		//read config and append any missing items
-		// other than the first or last braces
+		// split at the first colon and build a new
+		// map, similar to the npm config check
+
 		let currentCodeSettings = readVSCodeSettings();
-		let currentSettingsJSON = JSON.stringify(currentCodeSettings);
+		let previousVSCodeMap = sliceOnceAndMap(currentCodeSettings, ':');
 		
+		// compare the keys from the required configs against the previous settings
+		for(let entry of requiredVSCodeSettingMap) {
+			console.log(`entry is : ${entry}`);
 
-		console.log('at required VS Code configs');
-		console.log('\nChecking required configuration against previous configuration');
+			for(var s = 0; s < previousVSCodeMap.length; s++) {
+				let currentKey = previousVSCodeMap[s].key.replace(/\"/g,'').replace(':','');
+				let currentValue = previousVSCodeMap[s].value.replace(/\"/g,'').replace(',','');
+				if(currentKey.includes(entry[0])) {
+					// check if the value also matches the requirement value
+					if(currentValue !== entry[1]) {
 
-	}
+						console.log('Key matched but value did not');
+						keyOnlyMatched.push({key: entry[0], value: currentValue});
+
+					} else if(currentValue === entry[1]) {
+
+						console.log('Keys and values matched!');
+						keysAndValuesMatched.push({key: entry[0], value: entry[1]});
+					}
+				}
+				else {
+					console.log('Neither key nor value matched');
+					keysAndValuesNotMatched.push({key: currentKey, value: currentValue});
+				}
+			}
+		}
+
+		// get the current state of the file
+		let vsCodeConfigFile = fs.readFileSync(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`, {encoding: 'utf-8'});
+
+		
+		console.log('ok I checked the file');
+		// replace misconfigured values on required options if present
+		// using replace-in-file add on
+		// TODO: figure out why regex is killing http.proxyStrictSSL and nipping the strict SSL part of the key name
+		if(keyOnlyMatched.length > 0) {
+
+		}
+
+	} // endif true
 }
 
 
