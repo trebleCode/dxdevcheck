@@ -3,6 +3,8 @@ import fs = require('fs');
 import path = require('path');
 const ini = require('ini');
 let validJavaInstalls = 0;
+let validJavaInstallNames =[];
+const latestJavaInstallPath: any = null;
 let username = process.env.USERNAME;
 let userProfile: string = String(process.env.USERPROFILE);
 
@@ -57,11 +59,11 @@ function checkKeyValue(keyname: string, keyvalue: string, arr: any) {
 	return hasKeyValue;
 }
 
-function setConfigFileMap(arrayToMap: any) {
+function setConfigFileMap(arrayToMap: any, splitCharacter: string) {
 	let thisMap = arrayToMap
-	.filter((entry: string) => entry !== '\n' && entry !== "" && entry !== "\r")
+	.filter((entry: string) => entry !== '\n' && entry !== "" && entry !== "\r" && entry !== "{" && entry !== "}")
 	.map((item: { split: (arg0: string) => string; }) => {
-		var itemSplit = item.split('=');
+		var itemSplit = item.split(splitCharacter);
 		var k = itemSplit[0].trim().replace(/\/$/, '');
 		var v = itemSplit[1].trim().replace(/\/$/, '');
 		return {
@@ -133,6 +135,11 @@ function compareMapsAndSetNewConfig(requiredMap: any, previousMap: any, configFi
 	console.log("Finished writing new configuration file");
 }
 
+function getLatestValidJavaInstall(validInstalls: String[]) {
+	let latestInstall =  validInstalls.slice(-1)[0];
+	return latestInstall;
+}
+
 function runJavaCheck() {
 	var javaCheck = checkDirectorySync('C:\\Program Files\\Java');
 	if (javaCheck === true) {
@@ -151,20 +158,27 @@ function runJavaCheck() {
 					validJavaInstalls++;
 					console.log('Valid JDK 1.8 install: ' + jdkChildren[i]);
 					vscode.window.showInformationMessage('Success: Java JDK validation passed');
+					validJavaInstallNames.push(jdkChildren[i]);
 				}
 				else {
 					console.log('Path ' + jdkChildren[i] + ' does not contain a valid Java executable');
 				}
 			}
-			console.log('Valid JDK 1.8 installs: ' + validJavaInstalls);
-			vscode.window.showInformationMessage('Success: Java JDK validation passed');
+			if(validJavaInstallNames.length > 0) {
+				const latestJavaInstallPath = getLatestValidJavaInstall(jdkChildren);
+				console.log('Valid JDK 1.8 installs: ' + validJavaInstalls);
+				vscode.window.showInformationMessage('Success: Java JDK validation passed');
+				return latestJavaInstallPath;
+			}
 		}
 		else {
 			console.log('No valid JDK 1.8 installations found');
 			vscode.window.showErrorMessage('Failure: No valid JDK 1.8 installations found');
+			return null;
 		}
 	} else {
 		vscode.window.showErrorMessage('Failure: Java folder NOT found');
+		return null;
 	}
 }
 
@@ -300,10 +314,10 @@ function runNPMConfigCheck() {
 		// trim line breaks and trailing slashes, and remove empty keys
 
 		console.log('at required npm configs');
-		let requiredNpmMap = setConfigFileMap(requirednpmConfigItems);
+		let requiredNpmMap = setConfigFileMap(requirednpmConfigItems, '=');
 
 		console.log('at existing npm configs');
-		let previousNpmMap = setConfigFileMap(existingnpmConfig);
+		let previousNpmMap = setConfigFileMap(existingnpmConfig, '=');
 
 		console.log('\nChecking required configuration against previous configuration');
 
@@ -331,11 +345,6 @@ function runGitConfigCheck() {
 	'https.proxy=http://proxy.wellsfargo.com:8080',
 	'http.sslcainfo=C:\\Users\\'+username+'\\.vscode\\extensions\\ukoloff.win-ca-2.4.0\\node_modules\\win-ca\\pem\\roots.pem'
 	];
-	/** 
-	 * ADDITIONAL GIT CONFIGS REQUIRED
-	 * user.name -> not null. if null or not present, prompt user and add
-	 * user.email -> not null. null null or not present, prompt user and add
-	 */
 
 	let gitConfigExists: boolean = checkFileExistsInTargetFolder(userProfile, '\\.gitconfig');
 	if (gitConfigExists === false) {
@@ -366,7 +375,13 @@ function runGitConfigCheck() {
 			}
 		}
 	}	
-	addGitTagsNotFound(tagsNotFound, userProfile+'\\.gitconfig');
+	
+	if(tagsNotFound.length !== 0) {
+		addGitTagsNotFound(tagsNotFound, userProfile+'\\.gitconfig');
+	}
+	else {
+		console.log('No missing configuration tags found');
+	}
 	console.log('Finished doing all the things!');
 }
 
@@ -392,14 +407,8 @@ function searchForGitTag(tagName: string, arr: string[]) {
 async function showInputBox(currentPrompt: string, currentPlaceHolder: string,) {
 	const result = await vscode.window.showInputBox({
 		value: '',
-		//valueSelection: [2, 4],
 		placeHolder: currentPlaceHolder,
 		prompt: currentPrompt,
-	/*	validateInput: text => {
-			vscode.window.showInformationMessage(`Validating: ${text}`);
-			return text === '123' ? 'Not 123!' : null;
-		}
-	*/
 	});
 	return result;
 }
@@ -409,31 +418,79 @@ function addGitTagsNotFound(tags: string[], configFile: fs.PathLike) {
 		switch (tag) {
 			case 'user':
 				const currentName = await showInputBox('Please enter your full name', 'Ex. J Doe');
-				console.log(currentName);
-
 				const currentEmail = await showInputBox('Please enter your Wells Fargo email address', 'Ex. jdoe@wellsfargo.com');
-				console.log(currentEmail);
+				console.log('Adding config items for [user] tag');
+				appendItemsToConfigFile(configFile, [`[${tag}]`,
+										`\tname=${currentName}`,
+										`\temail=${currentEmail}`], true);
 				break;
 			case 'http':
 				console.log('Adding config items for [http] tag');
 				appendItemsToConfigFile(configFile, [`[${tag}]`,
 													'\tsslBackend=openssl',
-													`\tsslCAInfo=${userProfile}\\\\.vscode\\\\extensions\\\\ukoloff.win-ca-2.4.0\\\\node_modules\\\\win-ca\\\\pem\\\\roots.pem`,
+													`\tsslCAInfo=C:\\\\Users\\\\${username}\\\\.vscode\\\\extensions\\\\ukoloff.win-ca-2.4.0\\\\node_modules\\\\win-ca\\\\pem\\\\roots.pem`,
 													'\tproxy=http://proxy.wellsfargo.com:8080'], true);
 				break;
 			case 'https':
 				console.log('Adding config items for [https] tag');
 				appendItemsToConfigFile(configFile, [`[${tag}]`,
-													`\tsslCAInfo=${userProfile}\\\\.vscode\\\\extensions\\\\ukoloff.win-ca-2.4.0\\\\node_modules\\\\win-ca\\\\pem\\\\roots.pem`,
+													`\tsslCAInfo=C:\\\\Users\\\\${username}\\\\.vscode\\\\extensions\\\\ukoloff.win-ca-2.4.0\\\\node_modules\\\\win-ca\\\\pem\\\\roots.pem`,
 													'\tproxy=http://proxy.wellsfargo.com:8080'], true);
 				break;
 			case 'core':
 				console.log('Adding config items for [core] tag');
 				appendItemsToConfigFile(configFile, [`[${tag}]`,
-													`\teditor=${userProfile}\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe -w`], true);
+													`\t'editor=C:\\\\Users\\\\${username}\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe -w`], true);
 				break;
 		}
 	});
+}
+
+function readVSCodeSettings() {
+	let currentSettings = fs.readFileSync(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`, {encoding: 'utf-8'});
+	return currentSettings;
+}
+
+function runVSCodeConfigCheck(javaLocation?: string) {
+	console.log('\nChecking for .vscode settings.json file');
+	let configItemsFound = new Array();
+	let configItemsNotFound = new Array();
+
+	let requiredVSCodeSettingItems = [
+		'{',
+		'"http.proxy": "http://proxy.wellsfargo.com:8080",',
+		'"http.proxyStrictSSL": "false",',
+		'"git.path": "C:\\Program Files\\Git\\cmd\\git.exe",',
+		'"git.enabled": true,'
+	];
+
+	// if there's a valid JDK 8 installation on the machine
+	// add it to the config to be created
+
+	if(javaLocation) {
+		requiredVSCodeSettingItems.push(`"salesforcedx-vscode-apex.java.home": "${javaLocation.replace('\\','/')}"`, "}");
+	}
+	else {
+		requiredVSCodeSettingItems.push('}');
+	}
+
+	// check if there is an existing settings.json
+	let vsCodeSettingsExists: boolean = checkFileExistsInTargetFolder(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User`,'\\settings.json');
+	if(vsCodeSettingsExists === false) {
+		// create config
+		appendItemsToConfigFile(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`, requiredVSCodeSettingItems);
+	}
+	else if(vsCodeSettingsExists === true) {
+		//read config and append any missing items
+		// other than the first or last braces
+		let currentCodeSettings = readVSCodeSettings();
+		let currentSettingsJSON = JSON.stringify(currentCodeSettings);
+		
+
+		console.log('at required VS Code configs');
+		console.log('\nChecking required configuration against previous configuration');
+
+	}
 }
 
 
@@ -449,7 +506,7 @@ export function activate(context: vscode.ExtensionContext) {
 		let programFilesChildren = getChildDirectoriesWithoutMap('C:\\Program Files');
 
 		// Java install check
-		//runJavaCheck();
+		let currentJavaCheck: any = runJavaCheck();
 
 		// NodeJS install check
 		//runNodeCheck(programFilesChildren);
@@ -464,7 +521,14 @@ export function activate(context: vscode.ExtensionContext) {
 		//runNPMConfigCheck();
 
 		// .gitconfig configuration checks
-		runGitConfigCheck();
+		//runGitConfigCheck();
+
+		// .vscode user preferences checks
+		if (currentJavaCheck !== null) {
+			runVSCodeConfigCheck(currentJavaCheck);
+		} else {
+			runVSCodeConfigCheck();
+		}
 	};
 
 	// push directory check command to command registry
