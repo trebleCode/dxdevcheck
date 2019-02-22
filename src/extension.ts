@@ -3,8 +3,8 @@ import fs = require('fs');
 import path = require('path');
 const ini = require('ini');
 let validJavaInstalls = 0;
-let validJavaInstallNames =[];
-const latestJavaInstallPath: any = null;
+let validJavaInstallNames: any = [];
+//const latestJavaInstallPath: any = null;
 let username = process.env.USERNAME;
 let userProfile: string = String(process.env.USERPROFILE);
 const replace = require('replace-in-file');
@@ -183,7 +183,7 @@ function runJavaCheck() {
 				}
 			}
 			if(validJavaInstallNames.length > 0) {
-				const latestJavaInstallPath = getLatestValidJavaInstall(jdkChildren);
+				const latestJavaInstallPath = getLatestValidJavaInstall(validJavaInstallNames);
 				console.log('Valid JDK 1.8 installs: ' + validJavaInstalls);
 				vscode.window.showInformationMessage('Success: Java JDK validation passed');
 				return latestJavaInstallPath;
@@ -464,7 +464,31 @@ function addGitTagsNotFound(tags: string[], configFile: fs.PathLike) {
 	});
 }
 
+function removeDuplicateRequiredKeyFromFile(file: fs.PathLike, fileData: string, keyName: string, keyPositionInFile: number) {
+
+}
+
+function selectMatchingIndexValue(data: any, keyToMatch: any) {
+	let singleMatch: any = null;
+
+	for(let entry of data) {
+		if(entry[0] === keyToMatch) {
+			singleMatch = entry[1];
+		}
+		else {
+			console.log(`Checked key: ${entry[0]}`);
+		}
+	}
+	return singleMatch;
+}
+
 function readVSCodeSettings() {
+
+	let newSettings =  fs.readFileSync(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`, {encoding: 'utf-8'});
+	return newSettings;
+}
+
+function importVSCodeSettings() {
 	
 	let newSettings = null;
 	let currentSettings = fs.readFileSync(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`, {encoding: 'utf-8'});
@@ -484,7 +508,7 @@ function runVSCodeConfigCheck(javaLocation?: string) {
 	let requiredVSCodeSettingMap = new Map<String, any>();
 	requiredVSCodeSettingMap.set('{','')
 	.set("http.proxy", "http://proxy.wellsfargo.com:8080")
-	.set("proxyStrictSSL", false)
+	.set("http.proxyStrictSSL", false)
 	.set("git.path", "C:\\Program Files\\Git\\cmd\\git.exe")
 	.set("git.enabled", true);
 	
@@ -492,7 +516,7 @@ function runVSCodeConfigCheck(javaLocation?: string) {
 	// add it to the config to be created
 
 	if(javaLocation) {
-		requiredVSCodeSettingMap.set('"salesforcedx-vscode-apex.java.home":', `'"${javaLocation.replace('\\','/')}"'`)
+		requiredVSCodeSettingMap.set('"salesforcedx-vscode-apex.java.home":', `'"${javaLocation.replace('/\/g','/')}"'`)
 		.set('}','');
 	}
 	else {
@@ -509,48 +533,59 @@ function runVSCodeConfigCheck(javaLocation?: string) {
 		// split at the first colon and build a new
 		// map, similar to the npm config check
 
-		let currentCodeSettings = readVSCodeSettings();
+		let currentCodeSettings = importVSCodeSettings();
 		let previousVSCodeMap = sliceOnceAndMap(currentCodeSettings, ':');
 		
 		// compare the keys from the required configs against the previous settings
 		for(let entry of requiredVSCodeSettingMap) {
-			console.log(`entry is : ${entry}`);
+			//console.log(`entry is : ${entry}`);
 
 			for(var s = 0; s < previousVSCodeMap.length; s++) {
 				let currentKey = previousVSCodeMap[s].key.replace(/\"/g,'').replace(':','');
 				let currentValue = previousVSCodeMap[s].value.replace(/\"/g,'').replace(',','');
-				if(currentKey.includes(entry[0])) {
+
+				if(currentKey === entry[0]) {
 					// check if the value also matches the requirement value
 					if(currentValue !== entry[1]) {
 
-						console.log('Key matched but value did not');
+						//console.log('Key matched but value did not');
 						keyOnlyMatched.push({key: entry[0], value: currentValue});
 
 					} else if(currentValue === entry[1]) {
 
-						console.log('Keys and values matched!');
+						//console.log('Keys and values matched!');
 						keysAndValuesMatched.push({key: entry[0], value: entry[1]});
 					}
 				}
 				else {
-					console.log('Neither key nor value matched');
+					//console.log('Neither key nor value matched');
 					keysAndValuesNotMatched.push({key: currentKey, value: currentValue});
 				}
 			}
 		}
 
-		// get the current state of the file
-		let vsCodeConfigFile = fs.readFileSync(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`, {encoding: 'utf-8'});
-
-		
-		console.log('ok I checked the file');
+		console.log('Finished VS Code user preferences checking');
 		// replace misconfigured values on required options if present
 		// using replace-in-file add on
-		// TODO: figure out why regex is killing http.proxyStrictSSL and nipping the strict SSL part of the key name
+
 		if(keyOnlyMatched.length > 0) {
-
+			keyOnlyMatched.forEach(item => {
+				let configFileSettings = readVSCodeSettings();
+				let validConfigValue = selectMatchingIndexValue(requiredVSCodeSettingMap, item.key);
+				let opts = {
+					files: `C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`,
+					from: `"${item.key}": "${item.value}"`,
+					to: `"${item.key}": "${validConfigValue}"`,
+					dry: true
+				};
+				try {
+					let changes = replace.sync(opts);
+					console.log('Attempted modification', changes.join(', '));
+				} catch (e) {
+					console.error('Error occurred:', e);
+				}
+			});
 		}
-
 	} // endif true
 }
 

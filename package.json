@@ -39,6 +39,7 @@
 		"vscode": "^1.1.25"
 	},
 	"dependencies": {
+		"graceful-fs": "^4.1.15",
 		"ini": "^1.3.5",
 		"replace-in-file": "^3.4.3"
 	}
