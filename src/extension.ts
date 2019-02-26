@@ -4,10 +4,8 @@ import path = require('path');
 const ini = require('ini');
 let validJavaInstalls = 0;
 let validJavaInstallNames: any = [];
-//const latestJavaInstallPath: any = null;
 let username = process.env.USERNAME;
 let userProfile: string = String(process.env.USERPROFILE);
-const replace = require('replace-in-file');
 const JFile = require('jfile');
 
 function checkDirectorySync(directory: fs.PathLike) {
@@ -327,10 +325,8 @@ function runNPMConfigCheck() {
 		 All items that only partially match, discard.
 		 All items that do not match at all, keep as they may be other
 		 config items the developer wants to keep
+		 trim line breaks and trailing slashes, and remove empty keys
 		 */
-
-		// split the required npm items into a key value pair for easier comparison
-		// trim line breaks and trailing slashes, and remove empty keys
 
 		console.log('at required npm configs');
 		let requiredNpmMap = setConfigFileMap(requirednpmConfigItems, '=');
@@ -459,24 +455,10 @@ function addGitTagsNotFound(tags: string[], configFile: fs.PathLike) {
 			case 'core':
 				console.log('Adding config items for [core] tag');
 				appendItemsToConfigFile(configFile, [`[${tag}]`,
-													`\t'editor=C:\\\\Users\\\\${username}\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe -w`], true);
+													`\teditor=code --wait`], true);
 				break;
 		}
 	});
-}
-
-function selectMatchingIndexValue(data: any, keyToMatch: any) {
-	let singleMatch: any = null;
-
-	for(let entry of data) {
-		if(entry[0] === keyToMatch) {
-			singleMatch = entry[1];
-		}
-		else {
-			console.log(`Checked key: ${entry[0]}`);
-		}
-	}
-	return singleMatch;
 }
 
 function readVSCodeSettings() {
@@ -485,15 +467,16 @@ function readVSCodeSettings() {
 	return newSettings;
 }
 
-function importVSCodeSettings() {
-	
-	let newSettings = null;
+function importVSCodeSettings() {	
 	let currentSettings = fs.readFileSync(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`, {encoding: 'utf-8'});
 	
 	if(currentSettings.length !== 0) {
-		newSettings = currentSettings.trim().replace('""','').split('\n');
+		let newSettings: String[] = currentSettings.trim().replace('""','').split('\n');
+		return newSettings;
 	}
-	return newSettings;
+	else {
+		return null;
+	}
 }
 
 function runVSCodeConfigCheck(javaLocation?: string) {
@@ -513,7 +496,7 @@ function runVSCodeConfigCheck(javaLocation?: string) {
 	// add it to the config to be created
 
 	if(javaLocation) {
-		requiredVSCodeSettingMap.set('"salesforcedx-vscode-apex.java.home":', `'"${javaLocation.replace('/\/g','/')}"'`)
+		requiredVSCodeSettingMap.set("salesforcedx-vscode-apex.java.home", `${javaLocation.replace('/\/g','/')}`)
 		.set('}','');
 	}
 	else {
@@ -536,14 +519,11 @@ function runVSCodeConfigCheck(javaLocation?: string) {
 
 		// compare the keys from the required configs against the previous settings
 		for(let entry of requiredVSCodeSettingMap) {
-			//console.log(`entry is : ${entry}`);
-
 			for(var s = 0; s < previousVSCodeMap.length; s++) {
 				let currentKey = previousVSCodeMap[s].key.replace(/\"/g,'').replace(':','');
 				let currentValue = previousVSCodeMap[s].value.replace(/\"/g,'').replace(',','');
 
 				if(currentKey === entry[0]) {
-					// check if the value also matches the requirement value
 					if(currentValue !== entry[1]) {
 						keyOnlyMatched.push({key: entry[0], value: currentValue});
 					} else if(currentValue === entry[1]) {
@@ -555,33 +535,45 @@ function runVSCodeConfigCheck(javaLocation?: string) {
 				}
 			}
 
-			// add missing configs
-			let configItemMatch = jsonFile.grep(`"${entry[0]}": "${entry[1]}"`);
-			if(configItemMatch.length > 0 && configItemMatch !== '{' && configItemMatch == '}') {
-				// get the number of lines, split at new line and insert right before the last } character
+			// check for existing entries of required items
+			let configItemMatch = jsonFile.grep("    "+`"${entry[0]}`);
+
+			// not present in the config
+			if(configItemMatch.length === 0 && entry[0] !== '{' && entry[0] !== '}') {
+				try {
+					let currentConfig = fs.readFileSync(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`);
+					let parsedConfig = JSON.parse(currentConfig.toString());
+					parsedConfig[`${entry[0]}`] = entry[1];
+					fs.writeFileSync(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`, JSON.stringify(parsedConfig));
+				} catch (error) {
+					throw error;
+				}
 			}
-			console.log('test');
+			if(configItemMatch.length > 0) {
+				configItemMatch.forEach(item => {
+					// check ambigous matches against exact matches from required config
+					if(item.includes(`"${entry[0]}":`) === false && item.includes('{') === false && item.includes('}') === false) {
+						try {
+							let currentConfig = readVSCodeSettings();
+							let parsedConfig = JSON.parse(currentConfig.toString());
+							parsedConfig[`${entry[0]}`] = `${entry[1]}`;
+							fs.writeFileSync(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`, JSON.stringify(parsedConfig));
+						} catch (error) {
+							throw error;
+						}
+					}
+				});
+			}
 		}
-
-		console.log('Finished VS Code user preferences checking');
-
-
 		// replace any misconfigured values on required options if present
-		// using replace-in-file add on
 
 		if(keyOnlyMatched.length > 0) {
-			let settingMapClone = Object.create(requiredVSCodeSettingMap);
 			keyOnlyMatched.forEach(item => {
 				let configFileSettings = readVSCodeSettings();
-				let validConfigValue = selectMatchingIndexValue(settingMapClone, item.key);
-				let opts = {
-					files: `C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`,
-					from: `"${item.key}": "${item.value}"`,
-					to: `"${item.key}": "${validConfigValue}"`
-				};
 				try {
-					let changes = replace.sync(opts);
-					console.log('Attempted modification', changes.join(', '));
+					let parsedConfig = JSON.parse(configFileSettings.toString());
+					parsedConfig[`${item[0]}`] = item[1];
+					fs.writeFileSync(`C:\\Users\\${username}\\AppData\\Roaming\\Code\\User\\settings.json`, JSON.stringify(parsedConfig));
 				} catch (e) {
 					console.error('Error occurred:', e);
 				}
@@ -589,6 +581,8 @@ function runVSCodeConfigCheck(javaLocation?: string) {
 		}
 
 	} // endif true
+	console.log('Finished VS Code user preferences checking');
+	vscode.window.showInformationMessage('VS Code settings configuration complete');
 }
 
 
@@ -607,19 +601,19 @@ export function activate(context: vscode.ExtensionContext) {
 		let currentJavaCheck: any = runJavaCheck();
 
 		// NodeJS install check
-		//runNodeCheck(programFilesChildren);
+		runNodeCheck(programFilesChildren);
 
 		// git-bash install check
-		//runGitCheck(programFilesChildren);
+		runGitCheck(programFilesChildren);
 
 		// SFDX CLI installl check
-		//runSFDXCheck(programFilesChildren);
+		runSFDXCheck(programFilesChildren);
 
 		// npm configuration checks
-		//runNPMConfigCheck();
+		runNPMConfigCheck();
 
 		// .gitconfig configuration checks
-		//runGitConfigCheck();
+		runGitConfigCheck();
 
 		// .vscode user preferences checks
 		if (currentJavaCheck !== null) {
