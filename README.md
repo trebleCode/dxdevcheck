@@ -4,24 +4,27 @@ DX DevCheck is a VS Code extension for checking your local system setting's read
 
 ## Features
 
-Currently checks for the following in C:\Program Files:
+Checks for the following in C:\Program Files:
 
 * At least one Java 8 JDK 
 * NodeJS
 * Git
 * Salesforce CLI
-* NPM configuration
+
+Checks configuration data for:
+* NPM
 * Git
 * VS Code user preferences
 
-Checks %USERPROFILE%\.vscode for:
-
+TODO's
+Check %USERPROFILE%\.vscode for:
 * Installed extensions
 
-Also checks for values in the following system variables:
-
+Check values in the following system variables:
 * PATH
 * HTTP_PROXY & HTTPS_PROXY
+
+* Mocha tests
 
 ## Requirements
 
