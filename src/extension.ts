@@ -96,10 +96,10 @@ function appendItemsToConfigFile(file: fs.PathLike, configItems: any, firstItemS
 	let counter: number = 0;
 	configItems.forEach(function (item: any) {
 		if(firstItemStartsNewLine === true && counter === 0) {
-			fs.writeFileSync(file, `\n${item}\n`, {encoding: 'utf-8', flag: 'as'});
+			fs.writeFileSync(file, `\n${item}\n`, {encoding: 'utf-8', flag: 'a'});
 		}
 		else {
-			fs.writeFileSync(file, `${item}\n`, {encoding: 'utf-8', flag: 'as'});
+			fs.writeFileSync(file, `${item}\n`, {encoding: 'utf-8', flag: 'a'});
 		}
 		counter++;
 	});
