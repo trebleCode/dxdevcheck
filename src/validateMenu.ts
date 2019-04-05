@@ -11,8 +11,9 @@ export class ValidateMenuProvider implements vscode.TreeDataProvider<ValidateMen
 
     refresh() {
         // Why does this not work to update icons?
-        //return this.getValidateMenu(true);
         vscode.window.showInformationMessage('Refresh button clicked!');
+        return this.getValidateMenu(true);
+        //
     }
 
     getTreeItem(element?: ValidateMenu): vscode.TreeItem {
