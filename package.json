@@ -14,8 +14,7 @@
 		"onView:validateMenu"
 	],
 	"main": "./out/extension.js",
-	"contributes": 
-	{
+	"contributes": {
 		"viewsContainers": {
 			"activitybar": [
 				{
