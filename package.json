@@ -1,9 +1,9 @@
 {
-	"name": "dxdevcheck",
-	"displayName": "dxdevcheck",
+	"name": "myview",
+	"displayName": "MYVIEW",
 	"description": "checks dev things",
 	"version": "0.0.2",
-	"publisher": "scottsweeney",
+	"publisher": "someperson",
 	"engines": {
 		"vscode": "^1.28.0"
 	},
@@ -11,37 +11,58 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:extension.runDevChecker"
+		"onView:validateMenu"
 	],
 	"main": "./out/extension.js",
-	"contributes": {
+	"contributes": 
+	{
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "myview",
+					"title": "My Custom View Container",
+					"icon": "resources/bolt.svg"
+				}
+			]
+		},
+		"views": {
+			"myview": [
+				{
+					"id": "validateMenu",
+					"name": "Validate"
+				}
+			]
+		},
 		"commands": [
 			{
-				"command": "extension.runDevChecker",
-				"title": "DX DevCheck: Run Config Checker"
+				"command": "validateMenu.refreshList",
+				"title": "Validate the things!",
+				"icon": "resources/spinner.svg"
 			}
-		]
+		],
+		"menus": {
+			"view/title": [
+				{
+					"command": "validateMenu.refreshList",
+					"when": "view == validateMenu",
+					"group": "navigation"
+				}
+			]
+		}
 	},
 	"scripts": {
-		"vscode:prepublish": "tsc -p ./",
-		"compile": "tsc -watch -p ./",
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
 		"postinstall": "node ./node_modules/vscode/bin/install",
 		"test": "npm run compile && node ./node_modules/vscode/bin/test"
 	},
 	"devDependencies": {
-		"@types/mocha": "^2.2.32",
-		"@types/node": "^11.9.5",
-		"config": "^3.0.1",
-		"configparser": "^0.2.6",
-		"tslint": "^5.8.0",
-		"typescript": "^2.0.3",
-		"vscode": "^1.1.25"
+		"@types/mocha": "^2.2.42",
+		"@types/node": "^10.12.21",
+		"tslint": "^5.12.1",
+		"typescript": "^3.3.1",
+		"vscode": "^1.1.28"
 	},
-	"dependencies": {
-		"fs": "0.0.1-security",
-		"graceful-fs": "^4.1.15",
-		"ini": "^1.3.5",
-		"jfile": "^1.1.12"
-	}
+	"dependencies": {}
 }
