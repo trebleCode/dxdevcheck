@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-const validateMenuItems = require("./validateMenuItems.json");
+import * as validateMenuItems from "./validateMenu.json";
 import * as path from "path";
 import * as customUtils from "./customUtils";
 

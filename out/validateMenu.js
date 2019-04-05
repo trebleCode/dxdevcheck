@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const vscode = require("vscode");
-const validateMenuItems = require("./validateMenuItems.json");
+const validateMenuItems = require("./validateMenu.json");
 const path = require("path");
 const customUtils = require("./customUtils");
 class ValidateMenuProvider {
