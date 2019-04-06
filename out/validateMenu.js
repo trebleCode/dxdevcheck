@@ -8,12 +8,15 @@ class ValidateMenuProvider {
     constructor() {
         this._onDidChangeTreeData = new vscode.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+        this.meh = false;
+        this.toChild = (label, icon) => {
+            return new ValidateMenu(label, vscode.TreeItemCollapsibleState.None);
+        };
+        this.meh = false;
     }
     refresh() {
-        // Why does this not work to update icons?
-        vscode.window.showInformationMessage('Refresh button clicked!');
-        return this.getValidateMenu(true);
-        //
+        this.meh = true;
+        this._onDidChangeTreeData.fire();
     }
     getTreeItem(element) {
         return element;
@@ -26,41 +29,40 @@ class ValidateMenuProvider {
             return this.getValidateMenu();
         }
     }
+    createMenu(label, target) {
+        let childData = this.getMenusFromParent(target);
+        return new ValidateMenu(label, vscode.TreeItemCollapsibleState.Expanded, childData);
+    }
     getValidateMenu(withIcons) {
-        const toChild = (label, icon) => { return new ValidateMenu(label, vscode.TreeItemCollapsibleState.None); };
-        function getMenusFromParent(target) {
-            let childrenArray = [];
-            for (let i in target) {
-                let currentChild = target[i].name;
-                let currentConvertedChild = toChild(currentChild);
-                if (withIcons === true) {
-                    let configCheck = currentConvertedChild.isConfigured(target[i].name);
-                    if (configCheck === true) {
-                        currentConvertedChild.setConfiguredIcon();
-                    }
-                    else if (configCheck === false) {
-                        currentConvertedChild.setErrorIcon();
-                    }
-                }
-                childrenArray.push(currentConvertedChild);
-            }
-            return childrenArray;
-        }
-        function createMenu(label, target) {
-            let childData = getMenusFromParent(target);
-            return new ValidateMenu(label, vscode.TreeItemCollapsibleState.Expanded, childData);
-        }
         let headings = Object(validateMenuItems.children);
         let child1 = headings['child1'];
         let child2 = headings['child2'];
         let child3 = headings['child3'];
         let child4 = headings['child4'];
         let menus = [];
-        menus.push(createMenu('child1', child1));
-        menus.push(createMenu('child2', child2));
-        menus.push(createMenu('child3', child3));
-        menus.push(createMenu('child4', child4));
+        menus.push(this.createMenu('child1', child1));
+        menus.push(this.createMenu('child2', child2));
+        menus.push(this.createMenu('child3', child3));
+        menus.push(this.createMenu('child4', child4));
         return menus;
+    }
+    getMenusFromParent(target) {
+        let childrenArray = [];
+        for (let i in target) {
+            let currentChild = target[i].name;
+            let currentConvertedChild = this.toChild(currentChild);
+            if (this.meh) {
+                let configCheck = currentConvertedChild.isConfigured(target[i].name);
+                if (configCheck === true) {
+                    currentConvertedChild.setConfiguredIcon();
+                }
+                else if (configCheck === false) {
+                    currentConvertedChild.setErrorIcon();
+                }
+            }
+            childrenArray.push(currentConvertedChild);
+        }
+        return childrenArray;
     }
 }
 exports.ValidateMenuProvider = ValidateMenuProvider;

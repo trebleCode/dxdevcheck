@@ -7,13 +7,15 @@ export class ValidateMenuProvider implements vscode.TreeDataProvider<ValidateMen
     private _onDidChangeTreeData: vscode.EventEmitter<ValidateMenu | undefined> = new vscode.EventEmitter<ValidateMenu | undefined>();
     readonly onDidChangeTreeData: vscode.Event<ValidateMenu | undefined> = this._onDidChangeTreeData.event;
 
-    constructor() {}
+    private meh: boolean = false;
+    
+    constructor() {
+        this.meh = false;
+    }
 
     refresh() {
-        // Why does this not work to update icons?
-        vscode.window.showInformationMessage('Refresh button clicked!');
-        return this.getValidateMenu(true);
-        //
+        this.meh = true;
+        this._onDidChangeTreeData.fire();
     }
 
     getTreeItem(element?: ValidateMenu): vscode.TreeItem {
@@ -29,37 +31,17 @@ export class ValidateMenuProvider implements vscode.TreeDataProvider<ValidateMen
         }
     }
 
+    createMenu(label: string, target: any) {
+        let childData = this.getMenusFromParent(target);
+        return new ValidateMenu(label, vscode.TreeItemCollapsibleState.Expanded, childData);
+    }
+
+    toChild = (label: string, icon?: any): ValidateMenu => { 
+        return new ValidateMenu(label, vscode.TreeItemCollapsibleState.None); 
+    }
+
     getValidateMenu(withIcons?: boolean): ValidateMenu[] {
-        const toChild = (label: string, icon?: any): ValidateMenu => { return new ValidateMenu(label,vscode.TreeItemCollapsibleState.None);};
-    
-        function getMenusFromParent(target: any) {
-            let childrenArray: any = [];
-
-            for(let i in target) {
-                let currentChild: string = target[i].name;
-                let currentConvertedChild = toChild(currentChild);
-
-                if(withIcons === true) {
-                    let configCheck = currentConvertedChild.isConfigured(target[i].name);
-
-                    if(configCheck === true) {
-                        currentConvertedChild.setConfiguredIcon();
-                    }
-                    else if(configCheck === false) {
-                        currentConvertedChild.setErrorIcon();
-                    }
-                }
-                childrenArray.push(currentConvertedChild);
-            }
-
-            return childrenArray;
-        }
-
-        function createMenu(label: string, target: any) {
-            let childData = getMenusFromParent(target);
-            return new ValidateMenu(label, vscode.TreeItemCollapsibleState.Expanded, childData);
-        }
-
+       
         let headings = Object(validateMenuItems.children);
         let child1 = headings['child1'];
         let child2 = headings['child2'];
@@ -68,17 +50,41 @@ export class ValidateMenuProvider implements vscode.TreeDataProvider<ValidateMen
 
         let menus: any = [];
     
-        menus.push(createMenu('child1', child1));
-        menus.push(createMenu('child2', child2));
-        menus.push(createMenu('child3', child3));
-        menus.push(createMenu('child4', child4));
-    
+        menus.push(this.createMenu('child1', child1));
+        menus.push(this.createMenu('child2', child2));
+        menus.push(this.createMenu('child3', child3));
+        menus.push(this.createMenu('child4', child4));
+
         return menus;
+    }
+
+    getMenusFromParent(target: any) {
+        let childrenArray: any = [];
+
+        for(let i in target) {
+            let currentChild: string = target[i].name;
+            let currentConvertedChild = this.toChild(currentChild);
+
+                if(this.meh) {
+                let configCheck = currentConvertedChild.isConfigured(target[i].name);
+
+                if(configCheck === true) {
+                    currentConvertedChild.setConfiguredIcon();
+                }
+                else if(configCheck === false) {
+                    currentConvertedChild.setErrorIcon();
+                }
+            }
+            childrenArray.push(currentConvertedChild);
+        }
+
+        return childrenArray;
     }
 }
 
 
 export class ValidateMenu extends vscode.TreeItem {
+    
     constructor(
         public readonly label: string,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
