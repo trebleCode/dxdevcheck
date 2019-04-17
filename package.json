@@ -29,6 +29,10 @@
 				{
 					"id": "validateMenu",
 					"name": "Validate"
+				},
+				{
+					"id": "dataMenu",
+					"name": "Data"
 				}
 			]
 		},
@@ -37,7 +41,21 @@
 				"command": "validateMenu.refreshList",
 				"title": "Validate the things!",
 				"icon": "resources/spinner.svg"
+			},
+			{
+				"command": "dataMenu.toggleSelection",
+				"title": "Toggle file selection",
+				"icon": {
+					"light": "resources/light/check-empty.svg",
+					"dark": "resources/dark/check-empty.svg"
+				}
+			},
+			{
+				"command": "dataMenu.refreshList",
+				"title": "Refresh List",
+				"icon": "resources/spinner.svg"
 			}
+			
 		],
 		"menus": {
 			"view/title": [
@@ -45,6 +63,17 @@
 					"command": "validateMenu.refreshList",
 					"when": "view == validateMenu",
 					"group": "navigation"
+				},
+				{
+					"command": "dataMenu.refreshList",
+					"when": "view == dataMenu",
+					"group": "navigation"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "dataMenu.toggleSelection",
+					"when": "view == dataMenu && viewItem == file"
 				}
 			]
 		}
