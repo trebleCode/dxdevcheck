@@ -12,7 +12,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const dataMenuProvider = new DataMenuProvider();
     vscode.window.registerTreeDataProvider('dataMenu', dataMenuProvider);
     vscode.commands.registerCommand('dataMenu.refreshList', () => dataMenuProvider.refresh());
-    vscode.commands.registerCommand('dataMenu.toggleSelection', () => vscode.window.showInformationMessage(`Clicked a ree item: ${this}`));
+    vscode.commands.registerCommand('dataMenu.toggleSelection', () => vscode.window.showInformationMessage(`Clicked a tree item: ${this}`));
 }
 
 export function deactivate() {}
